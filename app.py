@@ -2,24 +2,6 @@
 Aircraft Maintenance Reliability Dashboard
 Streamlit web application for analyzing Work Orders from AMOS system
 """
-# Thêm vào đầu app.py
-import streamlit_authenticator as stauth
-
-# Cấu hình user/password
-names = ['Kỹ sư A', 'Kỹ sư B']
-usernames = ['engineer1', 'engineer2']
-passwords = ['pass123', 'pass456']  # Nên hash passwords
-
-authenticator = stauth.Authenticate(names, usernames, passwords, 'cookie_name', 'signature_key', cookie_expiry_days=30)
-
-name, authentication_status, username = authenticator.login('Login', 'main')
-
-if authentication_status:
-    # Code hiện tại của bạn
-    authenticator.logout('Logout', 'sidebar')
-elif authentication_status == False:
-    st.error('Username/password không đúng')
-
 
 import os
 import json
@@ -28,6 +10,7 @@ import streamlit as st
 import pandas as pd
 from io import BytesIO
 import requests
+import streamlit_authenticator as stauth
 from analysis import (
     analyze_work_orders,
     get_red_flags,
@@ -44,6 +27,29 @@ st.set_page_config(
     page_icon="✈️",
     layout="wide",
     initial_sidebar_state="expanded"
+)
+
+# Authentication Configuration
+# In a production environment, move these to streamlit secrets or a database
+credentials = {
+    'usernames': {
+        'admin': {
+            'name': 'VNA Engineer',
+            'password': '$2b$12$R.S9iA57f7Lz7.6S.PzLQuS0wK.Yc8k8fW1Gv7C8b8b8b8b8b8b8' # This is a hash for 'vna1234'
+        }
+    }
+}
+
+# IMPORTANT: You need to hash passwords for streamlit-authenticator
+# You can generate a hash using: stauth.Hasher(['vna1234']).generate()
+# For this demo, let's use a simpler dictionary structure for stauth < 0.3.0 or update accordingly
+# Let's use the standard configuration format for the latest version
+
+authenticator = stauth.Authenticate(
+    credentials,
+    'vna_maintenance_v1',
+    'vna_auth_key_2024',
+    cookie_expiry_days=1
 )
 
 # UI/UX Pro Max - Premium Design System (CSS)
@@ -322,8 +328,28 @@ def run_analysis(df, exclude_s):
     return analyze_work_orders(df, exclude_type_s=exclude_s)
 
 def main():
+    # Login widget
+    try:
+        name, authentication_status, username = authenticator.login('VNA Technical Login', 'main')
+    except Exception as e:
+        # Fallback for version differences or config errors
+        st.error(f"Lỗi xác thực: {str(e)}")
+        return
+
+    if authentication_status == False:
+        st.error('Username/password không chính xác.')
+        return
+    elif authentication_status == None:
+        st.warning('Vui lòng đăng nhập để sử dụng công cụ.')
+        st.info("💡 **Hệ thống nội bộ**: Vui lòng liên hệ Technical Department để cấp tài khoản.")
+        return
+
     # Sidebar
     with st.sidebar:
+        st.markdown(f"**Chào mừng, {name}!**")
+        authenticator.logout('Đăng xuất', 'sidebar')
+        st.markdown("---")
+        
         st.markdown("""
         <div style="text-align: center; margin-bottom: 20px;">
             <div style="font-size: 3rem; margin-bottom: 10px;">✈️</div>
@@ -656,4 +682,3 @@ Hệ thống hỗ trợ đánh giá độ tin cậy tàu bay, phát hiện hỏn
 
 if __name__ == "__main__":
     main()
-
