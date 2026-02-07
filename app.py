@@ -2,6 +2,24 @@
 Aircraft Maintenance Reliability Dashboard
 Streamlit web application for analyzing Work Orders from AMOS system
 """
+# Thêm vào đầu app.py
+import streamlit_authenticator as stauth
+
+# Cấu hình user/password
+names = ['Kỹ sư A', 'Kỹ sư B']
+usernames = ['engineer1', 'engineer2']
+passwords = ['pass123', 'pass456']  # Nên hash passwords
+
+authenticator = stauth.Authenticate(names, usernames, passwords, 'cookie_name', 'signature_key', cookie_expiry_days=30)
+
+name, authentication_status, username = authenticator.login('Login', 'main')
+
+if authentication_status:
+    # Code hiện tại của bạn
+    authenticator.logout('Logout', 'sidebar')
+elif authentication_status == False:
+    st.error('Username/password không đúng')
+
 
 import os
 import json
@@ -638,3 +656,4 @@ Hệ thống hỗ trợ đánh giá độ tin cậy tàu bay, phát hiện hỏn
 
 if __name__ == "__main__":
     main()
+
