@@ -85,6 +85,56 @@ def format_ata(ata: str) -> str:
     return ata_str
 
 
+def clean_amos_metadata(text: str) -> str:
+    """
+    Clean AMOS system metadata from W/O Description and W/O Action text.
+    Removes:
+    - WORKSTEP ADDED BY [user] ON [date], [time]
+    - ACTION PERFORMED BY [user] ON [date], [time]
+    - DESCRIPTION SIGN [user]
+    - PERFORMED SIGN [user]
+    """
+    if pd.isna(text) or not text:
+        return ""
+    
+    text_str = str(text).strip()
+    
+    # Split into lines for processing
+    lines = text_str.split('\n')
+    cleaned_lines = []
+    
+    for line in lines:
+        line_upper = line.strip().upper()
+        
+        # Skip lines that match metadata patterns
+        # Pattern 1: "1 WORKSTEP ADDED BY ... ON ..."
+        if re.match(r'^\d+\s+WORKSTEP\s+ADDED\s+BY\s+\w+\s+ON\s+', line_upper):
+            continue
+        
+        # Pattern 2: "ACTION PERFORMED BY ... ON ..."
+        if re.match(r'^ACTION\s+PERFORMED\s+BY\s+\w+\s+ON\s+', line_upper):
+            continue
+        
+        # Pattern 3: "DESCRIPTION SIGN ..."
+        if re.match(r'^DESCRIPTION\s+SIGN\s+\w+', line_upper):
+            continue
+        
+        # Pattern 4: "PERFORMED SIGN ..."
+        if re.match(r'^PERFORMED\s+SIGN\s+\w+', line_upper):
+            continue
+        
+        # Keep this line
+        cleaned_lines.append(line)
+    
+    # Join back and clean up extra whitespace
+    cleaned_text = '\n'.join(cleaned_lines).strip()
+    
+    # Remove multiple consecutive newlines
+    cleaned_text = re.sub(r'\n\s*\n+', '\n', cleaned_text)
+    
+    return cleaned_text
+
+
 def extract_ata_from_text(description: str, action: str, original_ata: str) -> str:
     """
     Extract ATA code from task references in W/O description or action text.
@@ -181,9 +231,36 @@ def classify_action(action: str) -> str:
 
 
 def should_exclude_ata(ata: str) -> bool:
-    """Check if ATA should be excluded from analysis"""
+    """
+    Check if ATA should be excluded from analysis.
+    Excludes:
+    - 2-digit prefixes in EXCLUDED_ATA_PREFIXES
+    - Pattern 44-2x (44-20 to 44-29)
+    - Pattern 23-3x (23-30 to 23-39)
+    """
+    if pd.isna(ata):
+        return False
+    
+    ata_str = str(ata).strip()
     ata_2digit = get_ata_2digit(ata)
-    return ata_2digit in EXCLUDED_ATA_PREFIXES
+    
+    # Check 2-digit prefix exclusion
+    if ata_2digit in EXCLUDED_ATA_PREFIXES:
+        return True
+    
+    # Check pattern-based exclusion for full ATA codes
+    # Format ATA to ensure it's in xx-xx format
+    ata_formatted = format_ata(ata_str)
+    
+    # Pattern 44-2x (44-20 to 44-29)
+    if ata_formatted.startswith('44-2'):
+        return True
+    
+    # Pattern 23-3x (23-30 to 23-39)
+    if ata_formatted.startswith('23-3'):
+        return True
+    
+    return False
 
 
 def filter_data(df: pd.DataFrame) -> pd.DataFrame:
@@ -319,6 +396,37 @@ def normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
     return df_normalized
 
 
+def normalize_type(type_value: str) -> str:
+    """
+    Normalize Type values to standard abbreviations:
+    - MAINTENANCE DEFECT -> M
+    - CABIN DEFECT -> C
+    - PILOT REPORT -> P
+    - SCHEDULED W/O -> S
+    """
+    if pd.isna(type_value):
+        return ""
+    
+    type_str = str(type_value).strip().upper()
+    
+    # Mapping from full names to abbreviations
+    type_mapping = {
+        'MAINTENANCE DEFECT': 'M',
+        'CABIN DEFECT': 'C',
+        'PILOT REPORT': 'P',
+        'SCHEDULED W/O': 'S',
+        'SCHEDULED': 'S',
+        'SCHEDULE': 'S'
+    }
+    
+    # If already abbreviated (single letter), return as is
+    if len(type_str) == 1 and type_str in ['M', 'C', 'P', 'S']:
+        return type_str
+    
+    # Otherwise, look up in mapping
+    return type_mapping.get(type_str, type_str)
+
+
 def analyze_work_orders(df: pd.DataFrame, exclude_type_s: bool = False) -> List[AnalysisResult]:
     """Main analysis function - analyze all work orders"""
     results = []
@@ -326,10 +434,14 @@ def analyze_work_orders(df: pd.DataFrame, exclude_type_s: bool = False) -> List[
     # Normalize columns first
     df = normalize_columns(df)
     
+    # Normalize Type values to standard abbreviations (M, C, P, S)
+    if 'Type' in df.columns:
+        df['Type'] = df['Type'].apply(normalize_type)
+    
     # Filter Schedule type if requested
     if exclude_type_s and 'Type' in df.columns:
-        # Convert to string and strip whitespace for robust comparison
-        df = df[df['Type'].astype(str).str.strip().str.upper() != 'S']
+        # Now we can simply filter by 'S' since all types are normalized
+        df = df[df['Type'] != 'S']
     
     # Ensure required columns exist
     required_cols = ['A/C', 'ATA', 'W/O Action', 'Issued']
@@ -383,13 +495,17 @@ def analyze_work_orders(df: pd.DataFrame, exclude_type_s: bool = False) -> List[
             wo_desc = row.get('W/O Description')
             if pd.isna(wo_desc) or str(wo_desc).strip() == "":
                 wo_desc = row.get('ATA Description', '')
+            
+            # Clean AMOS metadata from description and action
+            wo_desc_clean = clean_amos_metadata(wo_desc)
+            wo_action_clean = clean_amos_metadata(row.get('W/O Action', ''))
                 
             events.append(WorkOrderEvent(
                 wo=str(row.get('WO', '')),
-                description=str(wo_desc),
-                action=str(row.get('W/O Action', '')),
+                description=wo_desc_clean,
+                action=wo_action_clean,
                 action_type=action_type,
-                wo_type=str(row.get('Type', '')).strip().upper(),
+                wo_type=str(row.get('Type', '')),  # Type is already normalized to M/C/P/S
                 issued_date=row['Issued_Date']
             ))
         
@@ -482,7 +598,7 @@ def generate_recommendation(result: AnalysisResult) -> dict:
         type_info = f"[{e.wo_type}]" if e.wo_type else ""
         type_info_html = type_info
         
-        if e.wo_type.startswith('P'): # Count pilot reports
+        if e.wo_type == 'P':  # Count pilot reports (now using normalized type)
             pilot_reports += 1
             type_info_html = f"<span style='color:#ef4444; font-weight:bold;'>[{e.wo_type}]</span>"
             
@@ -610,4 +726,3 @@ def get_conclusion_display(conclusion: str) -> Tuple[str, str]:
         'SINGLE_EVENT': ('📋 Đang theo dõi', 'blue')
     }
     return mapping.get(conclusion, (conclusion, 'gray'))
-
