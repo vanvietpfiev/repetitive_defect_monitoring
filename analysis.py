@@ -26,7 +26,7 @@ CORRECTIVE_KEYWORDS = [
 ]
 
 # ATA prefixes to exclude
-EXCLUDED_ATA_PREFIXES = ['25', '33', '50', '51', '52', '53', '54', '55', '56', '57', '58', '59']
+EXCLUDED_ATA_PREFIXES = ['00','05','08','09','10','11','12','13','14','15','16','17','18','19','25', '33', '50', '51', '52', '53', '54', '55', '56', '57', '58', '59']
 
 
 @dataclass
@@ -610,3 +610,4 @@ def get_conclusion_display(conclusion: str) -> Tuple[str, str]:
         'SINGLE_EVENT': ('📋 Đang theo dõi', 'blue')
     }
     return mapping.get(conclusion, (conclusion, 'gray'))
+
