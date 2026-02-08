@@ -259,6 +259,9 @@ def should_exclude_ata(ata: str) -> bool:
     # Pattern 23-3x (23-30 to 23-39)
     if ata_formatted.startswith('23-3'):
         return True
+    # Pattern 32-41 (32-41)
+    if ata_formatted.startswith('32-41'):
+        return True
     
     return False
 
