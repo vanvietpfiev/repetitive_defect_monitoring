@@ -264,7 +264,7 @@ def determine_conclusion(events: List[WorkOrderEvent]) -> str:
 def normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
     """
     Normalize column names to standard expected format:
-    - ATA, A/C, WO, W/O Action, Issued, W/O Description
+    - ATA, A/C, WO, W/O Action, Issued, W/O Description, ATA Description
     """
     df.columns = [str(c).strip() for c in df.columns]
     
@@ -290,9 +290,9 @@ def normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
         'issued_date': 'Issued',
         'w/o description': 'W/O Description',
         'work order description': 'W/O Description',
-        'description': 'W/O Description',
+        'description': 'ATA Description',
         'w/o_description': 'W/O Description',
-        'desc': 'W/O Description',
+        'desc': 'ATA Description',
         'type': 'Type',
         'wo type': 'Type',
         'work type': 'Type',
@@ -353,9 +353,10 @@ def analyze_work_orders(df: pd.DataFrame, exclude_type_s: bool = False) -> List[
     
     # === ATA CORRECTION LOGIC ===
     # Extract corrected ATA from task references in description/action text
+    # We now check W/O Description, ATA Description (as fallback) and W/O Action
     df_filtered['ATA Corrected'] = df_filtered.apply(
         lambda row: extract_ata_from_text(
-            row.get('W/O Description', ''),
+            str(row.get('W/O Description', '')) + " " + str(row.get('ATA Description', '')),
             row.get('W/O Action', ''),
             row.get('ATA', '')
         ),
@@ -377,9 +378,15 @@ def analyze_work_orders(df: pd.DataFrame, exclude_type_s: bool = False) -> List[
         events = []
         for _, row in group_sorted.iterrows():
             action_type = classify_action(row.get('W/O Action', ''))
+            
+            # Get the best available description for the event
+            wo_desc = row.get('W/O Description')
+            if pd.isna(wo_desc) or str(wo_desc).strip() == "":
+                wo_desc = row.get('ATA Description', '')
+                
             events.append(WorkOrderEvent(
                 wo=str(row.get('WO', '')),
-                description=str(row.get('W/O Description', row.get('Description', ''))),
+                description=str(wo_desc),
                 action=str(row.get('W/O Action', '')),
                 action_type=action_type,
                 wo_type=str(row.get('Type', '')).strip().upper(),
@@ -417,6 +424,31 @@ def get_red_flags(results: List[AnalysisResult]) -> List[AnalysisResult]:
     return [r for r in results if r.conclusion in ['RESET_ONLY_REPEAT', 'CORRECTIVE_NOT_EFFECTIVE']]
 
 
+def get_first_sentence(text: str) -> str:
+    """Extract text from the beginning up to the first period (inclusive)."""
+    if pd.isna(text) or not text:
+        return ""
+    text_str = str(text).strip()
+    match = re.search(r'[^.!?]*[.!?]', text_str)
+    if match:
+        return match.group(0)
+    # If no period found, return first 80 chars
+    return (text_str[:80] + "...") if len(text_str) > 80 else text_str
+
+
+def clean_wo_from_text(text: str, wo: str) -> str:
+    """Remove WO number and common separators from the start of the text."""
+    if not text or not wo:
+        return text
+    wo_clean = str(wo).strip()
+    # Match WO at start (with or without brackets) followed by optional separators
+    pattern = rf'^\[?{re.escape(wo_clean)}\]?\s*[:;\-\s]*'
+    cleaned = re.sub(pattern, '', str(text).strip(), flags=re.IGNORECASE)
+    # Also handle some extra junk that might remain like "; " at start
+    cleaned = re.sub(r'^[:;\-\s]+', '', cleaned)
+    return cleaned
+
+
 def generate_recommendation(result: AnalysisResult) -> dict:
     """
     Generate detailed technical recommendation with structured data.
@@ -430,17 +462,23 @@ def generate_recommendation(result: AnalysisResult) -> dict:
     }
     """
     
-    # 1. Summary of history (Dates + Short Actions)
+    # 1. Summary of history (Dates + WO + Desc + Action)
     history_lines_html = []
     history_lines_plain = []
     pilot_reports = 0
     
     for e in result.events:
         date_str = e.issued_date.strftime('%d/%m') if pd.notna(e.issued_date) else "N/A"
-        # Shorten action text
-        action_short = (e.action[:40] + '...') if len(str(e.action)) > 40 else str(e.action)
-        action_short = action_short.replace('\n', ' ')
         
+        # Clean WO duplication from text
+        clean_desc = clean_wo_from_text(e.description, e.wo)
+        clean_action = clean_wo_from_text(e.action, e.wo)
+        
+        # Extract first sentences
+        desc_short = get_first_sentence(clean_desc).replace('\n', ' ')
+        action_short = get_first_sentence(clean_action).replace('\n', ' ')
+        
+        wo_info = f"[{e.wo}]" if e.wo else ""
         type_info = f"[{e.wo_type}]" if e.wo_type else ""
         type_info_html = type_info
         
@@ -448,8 +486,12 @@ def generate_recommendation(result: AnalysisResult) -> dict:
             pilot_reports += 1
             type_info_html = f"<span style='color:#ef4444; font-weight:bold;'>[{e.wo_type}]</span>"
             
-        history_lines_html.append(f"- **{date_str}** {type_info_html}: {action_short}")
-        history_lines_plain.append(f"- {date_str} {type_info}: {action_short}")
+        # Format: - Date [Type]: [WO] Description -> Action
+        line_html = f"- **{date_str}** {type_info_html}: {wo_info} {desc_short} &rarr; {action_short}"
+        line_plain = f"- {date_str} {type_info}: {wo_info} {desc_short} -> {action_short}"
+        
+        history_lines_html.append(line_html)
+        history_lines_plain.append(line_plain)
         
     history_text_html = "<br>".join(history_lines_html)
     history_text_plain = "\n".join(history_lines_plain)
