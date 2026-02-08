@@ -35,7 +35,7 @@ credentials = {
     'usernames': {
         'admin': {
             'name': 'VNA Engineer',
-            'password': '$2b$12$R.S9iA57f7Lz7.6S.PzLQuS0wK.Yc8k8fW1Gv7C8b8b8b8b8b8b8' # This is a hash for 'vna1234'
+            'password': '$2b$12$TQaIcB/fOtuieslbk30lg.vd/5GNuVZF15ZUy7JoGI8To4kEgE8BC' # Hash của 'vna1234'
         }
     }
 }
@@ -330,9 +330,20 @@ def run_analysis(df, exclude_s):
 def main():
     # Login widget
     try:
-        name, authentication_status, username = authenticator.login('VNA Technical Login', 'main')
+        # In newer versions of streamlit-authenticator (0.3.0+), 
+        # the parameters have changed. Using keyword arguments is safer.
+        authentication_data = authenticator.login(location='main')
+        
+        # Unpack based on return type (can be a tuple or dict depending on exact minor version)
+        if isinstance(authentication_data, tuple):
+            name, authentication_status, username = authentication_data
+        else:
+            # For some versions it might return results differently, but usually it's a tuple
+            authentication_status = st.session_state.get('authentication_status')
+            name = st.session_state.get('name')
+            username = st.session_state.get('username')
+            
     except Exception as e:
-        # Fallback for version differences or config errors
         st.error(f"Lỗi xác thực: {str(e)}")
         return
 
@@ -347,7 +358,7 @@ def main():
     # Sidebar
     with st.sidebar:
         st.markdown(f"**Chào mừng, {name}!**")
-        authenticator.logout('Đăng xuất', 'sidebar')
+        authenticator.logout(location='sidebar')
         st.markdown("---")
         
         st.markdown("""
