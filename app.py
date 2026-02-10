@@ -363,6 +363,193 @@ def run_analysis(df, exclude_s):
     """Run analysis (Caching disabled for development iterations)"""
     return analyze_work_orders(df, exclude_type_s=exclude_s)
 
+def render_guide_page():
+    """Render the User Guide page with glassmorphism styling"""
+    
+    st.markdown("""
+    <div style="text-align: center; margin-bottom: 30px;">
+        <h1 style="color: #f1f5f9;">📖 Hướng dẫn sử dụng</h1>
+        <p style="color: #94a3b8; font-size: 1.1rem;">Công cụ phân tích Hỏng hóc — Technical Department, Vietnam Airlines</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # --- Section 1: Quick Start ---
+    with st.expander("🚀 **Bắt đầu nhanh**", expanded=True):
+        st.markdown("""
+<div class="glass-card">
+<h3 style="color:#60a5fa; margin-top:0;">Bước 1: Đăng nhập</h3>
+<p style="color:#cbd5e1;">Nhập <b>Username</b> và <b>Password</b> được cấp bởi Technical Department. Nếu chưa có tài khoản, liên hệ bộ phận kỹ thuật.</p>
+
+<h3 style="color:#60a5fa;">Bước 2: Lấy dữ liệu từ AMOS</h3>
+<p style="color:#cbd5e1;">Vào <b>APN 399</b> hoặc sử dụng report <b>"VNA Wo Report"</b> (gõ vào ô Search trên AMOS) để download Work Order. Lưu file dưới dạng <code>.xlsx</code> hoặc <code>.xls</code>.</p>
+
+<h3 style="color:#60a5fa;">Bước 3: Upload file</h3>
+<p style="color:#cbd5e1;">Bấm nút <b>"📂 Upload Excel Data"</b> ở thanh menu bên trái, chọn file vừa tải về.</p>
+
+<h3 style="color:#60a5fa;">Yêu cầu cấu trúc file</h3>
+<p style="color:#cbd5e1;">File Excel cần có các cột sau (thứ tự không quan trọng):</p>
+<table style="width:100%; color:#cbd5e1; border-collapse:collapse; margin: 10px 0;">
+<tr style="background: rgba(59,130,246,0.15);">
+    <td style="padding:8px; border:1px solid #475569;"><code>ATA</code></td>
+    <td style="padding:8px; border:1px solid #475569;"><code>Description</code></td>
+    <td style="padding:8px; border:1px solid #475569;"><code>Type</code></td>
+    <td style="padding:8px; border:1px solid #475569;"><code>A/C</code></td>
+    <td style="padding:8px; border:1px solid #475569;"><code>WO</code></td>
+</tr>
+<tr style="background: rgba(59,130,246,0.1);">
+    <td style="padding:8px; border:1px solid #475569;"><code>W/O Description</code></td>
+    <td style="padding:8px; border:1px solid #475569;"><code>W/O Action</code></td>
+    <td style="padding:8px; border:1px solid #475569;"><code>Issue date</code></td>
+    <td style="padding:8px; border:1px solid #475569;"><code>Close Date</code></td>
+    <td style="padding:8px; border:1px solid #475569;"><code>Child_WO</code></td>
+</tr>
+</table>
+<p style="color:#94a3b8; font-size:0.9rem;">💡 <b>Lưu ý:</b> Hệ thống tự động nhận diện hàng tiêu đề (header) ở dòng 1 hoặc dòng 2 trong file Excel. Nếu file có tiêu đề phụ ở dòng đầu, hệ thống sẽ tự bỏ qua.</p>
+</div>
+        """, unsafe_allow_html=True)
+
+    # --- Section 2: Analysis Options ---
+    with st.expander("⚙️ **Tùy chọn phân tích**"):
+        st.markdown("""
+<div class="glass-card">
+<h3 style="color:#fbbf24; margin-top:0;">Bỏ Type 'S' (Scheduled Work Order)</h3>
+<p style="color:#cbd5e1;">Khi <b>bật</b> toggle <i>"Chỉ phân tích Hỏng hóc"</i>, hệ thống sẽ loại bỏ các dòng có Type = <code>S</code> (Scheduled / Lịch bảo dưỡng định kỳ), chỉ giữ lại các loại:</p>
+<ul style="color:#cbd5e1;">
+    <li><b>M</b> — Maintenance Defect (Hỏng hóc bảo dưỡng)</li>
+    <li><b>C</b> — Cabin Defect (Hỏng hóc cabin)</li>
+    <li><b>P</b> — Pilot Report (Báo cáo phi công) — <span style="color:#f87171;">⚠️ Ảnh hưởng khai thác</span></li>
+</ul>
+<p style="color:#94a3b8; font-size:0.9rem;">👉 Nên <b>bật</b> để tập trung vào hỏng hóc thực sự.</p>
+
+<h3 style="color:#fbbf24;">Google Sheet Sync</h3>
+<p style="color:#cbd5e1;">Bật <b>"Kết nối Google Sheet"</b> để đồng bộ ghi chú kỹ thuật lên Google Sheet chung, giúp team cùng theo dõi. Link Apps Script đã được cấu hình sẵn.</p>
+</div>
+        """, unsafe_allow_html=True)
+
+    # --- Section 3: Dashboard & Metrics ---
+    with st.expander("📊 **Dashboard & Metrics**"):
+        st.markdown("""
+<div class="glass-card">
+<h3 style="color:#34d399; margin-top:0;">4 Thẻ chỉ số (Metrics)</h3>
+<table style="width:100%; color:#cbd5e1; border-collapse:collapse; margin:10px 0;">
+<tr style="background:rgba(59,130,246,0.15);">
+    <th style="padding:10px; border:1px solid #475569; text-align:left;">Thẻ</th>
+    <th style="padding:10px; border:1px solid #475569; text-align:left;">Ý nghĩa</th>
+</tr>
+<tr><td style="padding:10px; border:1px solid #475569;">📝 <b>Total Work Orders</b></td>
+    <td style="padding:10px; border:1px solid #475569;">Tổng số WO trong dữ liệu (sau khi lọc)</td></tr>
+<tr><td style="padding:10px; border:1px solid #475569;">🚨 <b>Critical Issues</b></td>
+    <td style="padding:10px; border:1px solid #475569;">Số chuỗi hỏng hóc nguy cơ cao (Reset lặp hoặc Corrective không hiệu quả)</td></tr>
+<tr><td style="padding:10px; border:1px solid #475569;">⚠️ <b>Reset Only</b></td>
+    <td style="padding:10px; border:1px solid #475569;">Số chuỗi chỉ xử lý bằng Reset/Ops test, chưa có biện pháp khắc phục</td></tr>
+<tr><td style="padding:10px; border:1px solid #475569;">✅ <b>Fixed Effectively</b></td>
+    <td style="padding:10px; border:1px solid #475569;">Số chuỗi đã có Corrective Action và không tái phát</td></tr>
+</table>
+
+<h3 style="color:#34d399;">Bộ lọc (Filter)</h3>
+<p style="color:#cbd5e1;">Sử dụng <b>2 dropdown</b> phía trên Dashboard để lọc theo:</p>
+<ul style="color:#cbd5e1;">
+    <li><b>Tàu bay (A/C)</b> — chọn 1 tàu hoặc "All"</li>
+    <li><b>Hệ thống (ATA)</b> — chọn theo mã ATA 2 chữ số hoặc "All"</li>
+</ul>
+
+<h3 style="color:#34d399;">Phân loại kết quả</h3>
+<table style="width:100%; color:#cbd5e1; border-collapse:collapse; margin:10px 0;">
+<tr style="background:rgba(239,68,68,0.15);">
+    <td style="padding:8px; border:1px solid #475569; color:#f87171; font-weight:bold;">🔴 CORRECTIVE_NOT_EFFECTIVE</td>
+    <td style="padding:8px; border:1px solid #475569;">Đã sửa chữa/thay thế nhưng hỏng hóc vẫn tái phát</td></tr>
+<tr style="background:rgba(245,158,11,0.15);">
+    <td style="padding:8px; border:1px solid #475569; color:#fbbf24; font-weight:bold;">🟠 RESET_ONLY_REPEAT</td>
+    <td style="padding:8px; border:1px solid #475569;">Hỏng hóc lặp lại, chỉ xử lý reset/ops test</td></tr>
+<tr style="background:rgba(16,185,129,0.15);">
+    <td style="padding:8px; border:1px solid #475569; color:#34d399; font-weight:bold;">✅ CORRECTIVE_OK</td>
+    <td style="padding:8px; border:1px solid #475569;">Đã có hành động khắc phục hiệu quả, không tái phát</td></tr>
+<tr style="background:rgba(59,130,246,0.15);">
+    <td style="padding:8px; border:1px solid #475569; color:#60a5fa; font-weight:bold;">📋 SINGLE_EVENT</td>
+    <td style="padding:8px; border:1px solid #475569;">Chỉ có 1 WO, đang theo dõi</td></tr>
+</table>
+</div>
+        """, unsafe_allow_html=True)
+
+    # --- Section 4: Warnings Tab ---
+    with st.expander("🔴 **Tab: Cảnh báo & Khuyến cáo**"):
+        st.markdown("""
+<div class="glass-card">
+<h3 style="color:#f87171; margin-top:0;">Card Khuyến cáo</h3>
+<p style="color:#cbd5e1;">Mỗi card hiển thị thông tin về một chuỗi hỏng hóc nguy cơ cao:</p>
+<ul style="color:#cbd5e1;">
+    <li><b>Tiêu đề:</b> Tàu bay | ATA — kèm badge "NGUY CƠ CAO"</li>
+    <li><b>Diễn biến hỏng hóc:</b> Danh sách các WO theo thời gian, gồm ngày, loại [M/C/P], số WO, mô tả → hành động</li>
+    <li><b>Đánh giá:</b> Nhận xét tự động về tình trạng hỏng hóc</li>
+    <li><b>Khuyến cáo:</b> Đề xuất hành động tiếp theo</li>
+</ul>
+<p style="color:#cbd5e1;">⚠️ Nếu có <b>≥ 2 lần Pilot Report (Type P)</b>, hệ thống sẽ đưa ra <span style="color:#f87171; font-weight:bold;">CẢNH BÁO NGHIÊM TRỌNG</span> và đề nghị dừng tàu.</p>
+
+<h3 style="color:#f87171;">Ghi chú kỹ thuật (Comment)</h3>
+<p style="color:#cbd5e1;">Phía bên phải mỗi card, kỹ sư có thể:</p>
+<ol style="color:#cbd5e1;">
+    <li>Nhập đánh giá, link tài liệu, hoặc hành động đã thực hiện</li>
+    <li>Bấm <b>"💾 Lưu & Sync"</b> để lưu vào file local và đồng bộ lên Google Sheet</li>
+</ol>
+</div>
+        """, unsafe_allow_html=True)
+
+    # --- Section 5: Matrix Tab ---
+    with st.expander("📉 **Tab: Ma trận Tổng quan**"):
+        st.markdown("""
+<div class="glass-card">
+<h3 style="color:#a78bfa; margin-top:0;">Ma trận Reliability (A/C vs ATA)</h3>
+<p style="color:#cbd5e1;">Bảng chéo giữa <b>Tàu bay</b> (hàng) và <b>Hệ thống ATA 2 chữ số</b> (cột):</p>
+<ul style="color:#cbd5e1;">
+    <li>🔴 = Corrective đã thực hiện nhưng <b>không hiệu quả</b></li>
+    <li>🟠 = Hỏng hóc lặp lại, chỉ <b>Reset/Ops test</b></li>
+    <li><i>Ô trống</i> = Không có cảnh báo</li>
+</ul>
+
+<h3 style="color:#a78bfa;">Drill-down Chi tiết</h3>
+<p style="color:#cbd5e1;">Phía dưới ma trận, chọn cụ thể <b>Tàu bay</b> và <b>ATA</b> để xem bảng chi tiết từng WO gồm: Ngày, Số WO, Type, ATA chi tiết, Mô tả, Hành động.</p>
+</div>
+        """, unsafe_allow_html=True)
+
+    # --- Section 6: Data Tab ---
+    with st.expander("📋 **Tab: Dữ liệu chi tiết**"):
+        st.markdown("""
+<div class="glass-card">
+<h3 style="color:#38bdf8; margin-top:0;">Bảng tổng hợp</h3>
+<p style="color:#cbd5e1;">Hiển thị toàn bộ kết quả phân tích ở dạng bảng, gồm: A/C, ATA, Ngày xảy ra, Số WO, Kết luận, Tóm tắt tình trạng.</p>
+<p style="color:#cbd5e1;">Các dòng được <b>tô màu</b> theo kết luận để dễ nhận biết.</p>
+
+<h3 style="color:#38bdf8;">Tải báo cáo Excel</h3>
+<p style="color:#cbd5e1;">Bấm nút <b>"💾 Tải báo cáo Excel"</b> ở cuối tab để tải file Excel gồm 2 sheet:</p>
+<ul style="color:#cbd5e1;">
+    <li><b>All Data</b> — Toàn bộ kết quả phân tích</li>
+    <li><b>Warnings</b> — Chỉ các cảnh báo, kèm khuyến cáo chi tiết</li>
+</ul>
+</div>
+        """, unsafe_allow_html=True)
+
+    # --- Section 7: FAQ ---
+    with st.expander("❓ **Câu hỏi thường gặp (FAQ)**"):
+        st.markdown("""
+<div class="glass-card">
+<h3 style="color:#e2e8f0; margin-top:0;">Q: File upload bị lỗi "Không thể đọc dữ liệu" ?</h3>
+<p style="color:#cbd5e1;">Kiểm tra file có đúng định dạng <code>.xlsx/.xls</code> và chứa đầy đủ các cột bắt buộc. Một số tên cột có thể khác (ví dụ: "Issued" thay vì "Issue date") — hệ thống sẽ tự nhận diện các biến thể phổ biến.</p>
+
+<h3 style="color:#e2e8f0;">Q: Tại sao một số ATA bị loại khỏi phân tích?</h3>
+<p style="color:#cbd5e1;">Hệ thống tự động loại bỏ các ATA thuộc nhóm structural/zonal (05, 06, 50–59...) và một số mã đặc biệt (44-2x, 23-3x, 32-41) vì không phải hỏng hóc hệ thống.</p>
+
+<h3 style="color:#e2e8f0;">Q: "Corrective không hiệu quả" nghĩa là gì?</h3>
+<p style="color:#cbd5e1;">Có nghĩa là đã thực hiện hành động khắc phục (thay thế, sửa chữa...) nhưng hỏng hóc <b>tái phát ở ngày sau đó</b>. Cần xem xét lại biện pháp hoặc mở rộng vùng kiểm tra.</p>
+
+<h3 style="color:#e2e8f0;">Q: Khi app cập nhật trên Streamlit Cloud, dữ liệu có bị mất?</h3>
+<p style="color:#cbd5e1;">Nếu app cập nhật, bấm <b>"Rerun"</b> ở góc phải màn hình thay vì F5. File upload sẽ được giữ lại trong phiên làm việc.</p>
+
+<h3 style="color:#e2e8f0;">Q: Liên hệ hỗ trợ ở đâu?</h3>
+<p style="color:#cbd5e1;">Liên hệ <b>Technical Department — Vietnam Airlines</b> để được hỗ trợ kỹ thuật hoặc cấp tài khoản.</p>
+</div>
+        """, unsafe_allow_html=True)
+
+
 def main():
     # Login widget
     try:
@@ -405,6 +592,11 @@ def main():
         </div>
         """, unsafe_allow_html=True)
         
+        # Page navigation
+        page = st.radio("📌 Trang", ["📊 Phân tích", "📖 Hướng dẫn"], horizontal=True, label_visibility="collapsed")
+        
+        st.markdown("---")
+        
         uploaded_file = st.file_uploader("📂 Upload Excel Data", type=['xlsx', 'xls'])
         
         st.markdown("---")
@@ -431,6 +623,10 @@ def main():
         st.info("💡 **Mẹo:** Khi app cập nhật, bấm **'Rerun'** ở góc phải màn hình để giữ lại dữ liệu, đừng F5.")
 
     # Main Content
+    if page == "📖 Hướng dẫn":
+        render_guide_page()
+        return
+    
     if uploaded_file is None:
         # Empty State / Landing
         landing_html = """
