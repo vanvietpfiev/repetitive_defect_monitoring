@@ -162,7 +162,7 @@ def extract_ata_from_text(description: str, action: str, original_ata: str) -> s
     reference_patterns = {
         'high': ['TSM', 'AFI', 'FIM'],
         'medium': ['IPC', 'IPD'],
-        'low': ['AMM', 'SRM']
+        'low': ['AMM']
     }
     
     # ATA pattern: captures xx-xx or xxxx at start of reference number
@@ -729,3 +729,4 @@ def get_conclusion_display(conclusion: str) -> Tuple[str, str]:
         'SINGLE_EVENT': ('📋 Đang theo dõi', 'blue')
     }
     return mapping.get(conclusion, (conclusion, 'gray'))
+
