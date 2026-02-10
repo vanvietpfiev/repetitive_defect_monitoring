@@ -319,8 +319,44 @@ def create_recommendation_card_html(result, rec_data):
 
 @st.cache_data
 def load_data(file):
-    """Load Excel data with caching"""
-    return pd.read_excel(file)
+    """Load Excel data with caching and header detection"""
+    # Expected column names (can be variations)
+    expected_columns = ['ATA', 'Description', 'Type', 'A/C', 'WO', 'W/O Description', 
+                       'W/O Action', 'Issue date', 'Close Date', 'Child_WO']
+    
+    # First, try reading with default header (row 0)
+    df = pd.read_excel(file)
+    
+    # Check if first row contains the expected headers
+    first_row_columns = [str(col).strip() for col in df.columns]
+    
+    # Check if any of the expected columns are in the first row
+    matches = sum(1 for col in expected_columns if col in first_row_columns)
+    
+    # If we have at least 5 matches, assume first row is header
+    if matches >= 5:
+        return df
+    
+    # Otherwise, check if second row might be the header
+    # Read again without header to check the second row
+    df_no_header = pd.read_excel(file, header=None)
+    
+    if len(df_no_header) > 1:
+        # Check second row (index 1)
+        second_row = df_no_header.iloc[1].tolist()
+        second_row_str = [str(val).strip() for val in second_row]
+        
+        # Check if second row contains expected columns
+        second_matches = sum(1 for col in expected_columns if col in second_row_str)
+        
+        # If second row has more matches, use it as header
+        if second_matches >= 5:
+            # Read again with second row as header (skiprows=1, header=0)
+            df = pd.read_excel(file, header=1)
+            return df
+    
+    # If neither works well, return the original dataframe
+    return df
 
 # Removed cache for analysis to ensure code updates (like new recommendation logic) are applied immediately
 def run_analysis(df, exclude_s):
